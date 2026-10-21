@@ -1,0 +1,83 @@
+name: PR Butler
+
+# A friendly robot that greets pull requests, labels them by size,
+# and makes first-time contributors feel at home.
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  greet-and-label:
+    name: Greet, label, and check first PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Welcome + checklist + size label
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const author = pr.user.login;
+
+            // ---- 1. Size label from the PR's own diff stats ----
+            const lines = pr.additions + pr.deletions;
+            const size = lines > 500 ? "XL" : lines > 100 ? "L" : lines > 20 ? "M" : "S";
+            const label = `size: ${size}`;
+
+            // Create the label if it is missing (idempotent).
+            const labels = ["S", "M", "L", "XL"].map((s) => ({
+              name: `size: ${s}`,
+              color: { S: "2b8a3e", M: "1c7ed6", L: "e8590c", XL: "c92a2a" }[s],
+            }));
+            for (const l of labels) {
+              try {
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: l.name,
+                  color: l.color,
+                });
+              } catch (e) {
+                // Label already exists — that is fine.
+              }
+            }
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              labels: [label],
+            });
+
+            // ---- 2. First-time contributor? Extra warmth. ----
+            const isFreshFace = ["FIRST_TIME_CONTRIBUTOR", "FIRST_TIMER", "NONE"].includes(
+              pr.author_association
+            );
+
+            // ---- 3. Welcome comment with a review checklist ----
+            const body = [
+              `### Hi @${author}! 👋 Thanks for opening this PR. ${isFreshFace ? "First contribution here — extra welcome!" : ""}`,
+              ``,
+              `**PR Butler** labeled this pull request \`${label}\` (${lines} lines changed).`,
+              ``,
+              `**Review checklist:**`,
+              `- [ ] CI is green`,
+              `- [ ] Changes are focused and described clearly`,
+              `- [ ] No secrets or credentials in the diff`,
+              ``,
+              `I'll keep the size label in sync as you push more commits. Happy reviewing! 🤖`
+            ].join("\n");
+
+            if (context.payload.action === "opened") {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body,
+              });
+            }
