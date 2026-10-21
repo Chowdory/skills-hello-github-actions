@@ -1,0 +1,120 @@
+name: Repo Doctor
+
+# A weekly checkup: finds failing workflows, stale branches, and
+# outdated action versions, then files a tidy report as an issue.
+on:
+  schedule:
+    - cron: "0 9 * * 1" # every Monday 09:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+jobs:
+  checkup:
+    name: Weekly repository checkup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Examine repo and produce report
+        id: report
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+
+            // ---- 1. Failed workflow runs in the last 7 days ----
+            const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+              owner, repo, created: `>=${since}`, per_page: 100,
+            });
+            const failed = runs.filter((r) => r.conclusion === "failure");
+            const failedSection = failed.length === 0
+              ? "✅ No failed workflow runs in the last 7 days."
+              : failed.slice(0, 10).map((r) =>
+                  `- ❌ [${r.name}](${r.html_url}) — \`${r.head_branch ?? "?"}\` (${r.created_at})`
+                ).join("\n");
+
+            // ---- 2. Stale branches (no commit in the last 30 days) ----
+            const cutoff = Date.now() - 30 * 24 * 3600 * 1000;
+            const branches = await github.paginate(github.rest.repos.listBranches, {
+              owner, repo, protected: false, per_page: 100,
+            });
+            const stale = [];
+            for (const b of branches) {
+              if (b.name === "main" || b.name === "master") continue;
+              const commit = await github.rest.repos.getCommit({ owner, repo, ref: b.name });
+              if (new Date(commit.data.commit.committer.date).getTime() < cutoff) {
+                stale.push(`- 🗑️ \`${b.name}\` — last touched ${commit.data.commit.committer.date.slice(0, 10)}`);
+              }
+            }
+            const staleSection = stale.length === 0
+              ? "✅ No stale branches."
+              : stale.join("\n") + "\n\n_Repo Doctor never deletes branches on its own — it only reports._";
+
+            // ---- 3. Action versions used vs. latest published release ----
+            const fs = require("fs");
+            const workflowFiles = (
+              await github.rest.repos.getContent({ owner, repo, path: ".github/workflows" })
+            ).data.filter((f) => f.name.endsWith(".yml"));
+            const used = new Set();
+            for (const f of workflowFiles) {
+              const content = Buffer.from(
+                (await github.rest.repos.getContent({ owner, repo, path: f.path })).data.content,
+                "base64"
+              ).toString();
+              for (const m of content.matchAll(/uses:\s*([\w.-]+\/[\w.-]+)@(\S+)/g)) {
+                used.add(m[1]);
+              }
+            }
+            const actionRows = [];
+            for (const full of used) {
+              try {
+                const latest = await github.rest.repos.getLatestRelease({ owner: full.split("/")[0], repo: full.split("/")[1] });
+                actionRows.push(`| ${full} | \`${latest.data.tag_name}\` |`);
+              } catch (e) {
+                actionRows.push(`| ${full} | _no published release_ |`);
+              }
+            }
+            const actionsSection = actionRows.length === 0
+              ? "_No actions in use._"
+              : "| Action | Latest release |\n|---|---|\n" + actionRows.join("\n");
+
+            const report = [
+              `## 🩺 Repo Doctor — weekly report`,
+              ``,
+              `_Automated checkup of ${owner}/${repo}, generated ${new Date().toISOString().slice(0, 10)}._`,
+              ``,
+              `### Failed runs (last 7 days)`,
+              failedSection,
+              ``,
+              `### Stale branches (idle > 30 days)`,
+              staleSection,
+              ``,
+              `### Action versions in use`,
+              actionsSection,
+              ``,
+              `---`,
+              `_This issue was opened automatically by the \`repo-doctor.yml\` workflow. Close it to acknowledge the report._ 🩺`,
+            ].join("\n");
+
+            core.exportVariable("REPORT_BODY", report);
+
+      - name: File the report as an issue
+        uses: actions/github-script@v9
+        env:
+          REPORT_BODY: ${{ env.REPORT_BODY }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            await github.rest.issues.create({
+              owner,
+              repo,
+              title: `🩺 Repo Doctor report — ${new Date().toISOString().slice(0, 10)}`,
+              body: process.env.REPORT_BODY,
+              labels: ["repo-doctor"],
+            });
