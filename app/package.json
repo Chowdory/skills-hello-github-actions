@@ -1,0 +1,14 @@
+{
+  "name": "actions-lab-api",
+  "version": "1.0.0",
+  "description": "Minimal demo API used by the Actions Lab CI pipeline",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
