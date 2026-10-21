@@ -1,0 +1,26 @@
+name: Release
+
+# Automatic releases from conventional commits: merge a commit like
+# "feat: add endpoint" or "fix: correct greeting" to main, and
+# release-please opens a release PR, maintains CHANGELOG.md, tags,
+# and publishes a GitHub Release. Approve the release PR to ship it.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    name: Cut a release when conventional commits land
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run release-please
+        uses: googleapis/release-please-action@v5
+        with:
+          release-type: simple
+          package-name: actions-lab-api
+          extra-files: |
+            app/package.json

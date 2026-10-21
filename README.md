@@ -1,59 +1,76 @@
-<header>
+# GitHub Actions Lab 🧪
 
-# Hello GitHub Actions
+**A living showcase of real-world GitHub Actions automation** — this repo started life as the
+[GitHub Skills "Hello GitHub Actions"](https://github.com/skills/hello-github-actions) course and was
+rebuilt into a portfolio of workflows you'd actually run in production.
 
-_Create and run a GitHub Actions workflow._
+[![CI](https://github.com/Chowdory/skills-hello-github-actions/actions/workflows/ci.yml/badge.svg)](https://github.com/Chowdory/skills-hello-github-actions/actions/workflows/ci.yml)
+[![Release](https://github.com/Chowdory/skills-hello-github-actions/actions/workflows/release.yml/badge.svg)](https://github.com/Chowdory/skills-hello-github-actions/actions/workflows/release.yml)
+[![Repo Doctor](https://github.com/Chowdory/skills-hello-github-actions/actions/workflows/repo-doctor.yml/badge.svg)](https://github.com/Chowdory/skills-hello-github-actions/actions/workflows/repo-doctor.yml)
 
-</header>
+## The workflows
 
-## Step 1: Create a workflow file
+| Workflow | Trigger | What it demonstrates |
+|---|---|---|
+| **[CI](.github/workflows/ci.yml)** | every push & PR | Node 20/22 test matrix, dependency install, live smoke test of the HTTP server, packaged artifact upload |
+| **[PR Butler](.github/workflows/pr-butler.yml)** | every pull request | Welcome comments with a review checklist, automatic `size: S/M/L/XL` labels, warm welcome for first-time contributors |
+| **[Release](.github/workflows/release.yml)** | push to `main` | Conventional commits → automatic versioning, `CHANGELOG.md`, tags, and GitHub Releases via [release-please](https://github.com/googleapis/release-please) |
+| **[Repo Doctor](.github/workflows/repo-doctor.yml)** | every Monday 09:00 UTC | Scheduled health check: failed runs, stale branches, outdated action versions → files a tidy report issue |
 
-_Welcome to "Hello GitHub Actions"! :wave:_
+## The demo app
 
-**What is _GitHub Actions_?**: GitHub Actions is a flexible way to automate nearly every aspect of your team's software workflow. You can automate testing, continuously deploy, review code, manage issues and pull requests, and much more. The best part, these workflows are stored as code in your repository and easily shared and reused across teams. To learn more, check out these resources:
+`app/` is a tiny zero-dependency Node.js HTTP API (no framework) so the CI pipeline has something
+real to test:
 
-- The GitHub Actions feature page, see [GitHub Actions](https://github.com/features/actions).
-- The "GitHub Actions" user documentation, see [GitHub Actions](https://docs.github.com/actions).
+```bash
+cd app
+npm install
+npm test        # 8 tests: unit + live HTTP integration
+npm start       # serves http://localhost:3000
+```
 
-**What is a _workflow_?**: A workflow is a configurable automated process that will run one or more jobs. Workflows are defined in special files in the `.github/workflows` directory and they execute based on your chosen event. For this exercise, we'll use a `pull_request` event.
+```bash
+curl http://localhost:3000/health
+# {"status":"ok",...}
 
-- To read more about workflows, jobs, and events, see "[Understanding GitHub Actions](https://docs.github.com/en/actions/learn-github-actions/understanding-github-actions)".
-- If you want to learn more about the `pull_request` event before using it, see "[pull_request](https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads#pull_request)".
+curl "http://localhost:3000/api/v1/greet?name=Ada"
+# {"message":"Hello, Ada! Welcome to the Actions Lab. 🚀",...}
+```
 
-To get you started, we ran an Actions workflow in your new repository that, among other things, created a branch for you to work in, called `welcome-workflow`.
+## Try it yourself
 
-### :keyboard: Activity: Create a workflow file
+The best way to learn Actions is to trigger one and watch it run:
 
-1. Open a new browser tab, and navigate to this same repository. Then, work on the steps in your second tab while you read the instructions in this tab.
-1. Create a pull request. This will contain all of the changes you'll make throughout this part of the course.
+1. **Watch PR Butler greet you** — open any pull request and refresh. Within seconds you get a
+   checklist comment and a size label; push another commit and watch the label update.
+2. **Trigger Repo Doctor on demand** — Actions tab → *Repo Doctor* → *Run workflow*. It files a
+   report issue within a minute.
+3. **Cut a release** — merge a PR with a conventional-commit title (`feat: ...`, `fix: ...`).
+   Release-please opens a release PR; merge that and a GitHub Release appears.
+4. **Download a CI artifact** — any CI run has a downloadable `actions-lab-api` tarball under
+   *Artifacts*.
 
-   Click the **Pull Requests** tab, click **New pull request**, set `base: main` and `compare:welcome-workflow`, click **Create pull request**, then click **Create pull request** again.
+## Local development
 
-1. Navigate to the **Code** tab.
-1. From the **main** branch dropdown, click on the **welcome-workflow** branch.
-1. Navigate to the `.github/workflows/` folder, then select **Add file** and click on **Create new file**.
-1. In the **Name your file** field, enter `welcome.yml`.
-1. Add the following content to the `welcome.yml` file:
+```bash
+git clone https://github.com/Chowdory/skills-hello-github-actions.git
+cd skills-hello-github-actions/app
+npm install && npm test
+```
 
-   ```yaml copy
-   name: Post welcome comment
-   on:
-     pull_request:
-       types: [opened]
-   permissions:
-     pull-requests: write
-   ```
+Validate workflows locally before pushing with
+[actionlint](https://github.com/rhysd/actionlint):
 
-1. To commit your changes, click **Commit changes**.
-1. Type a commit message, select **Commit directly to the welcome-workflow branch** and click **Commit changes**.
-1. Wait about 20 seconds, then refresh this page (the one you're following instructions from). A separate Actions workflow in the repository (not the workflow you created) will run and will automatically replace the contents of this README file with instructions for the next step.
+```bash
+brew install actionlint   # or: go install github.com/rhysd/actionlint/cmd/actionlint@latest
+actionlint
+```
 
-<footer>
+## Credits
 
----
+Built on top of the [GitHub Skills "Hello GitHub Actions"](https://github.com/skills/hello-github-actions)
+course (MIT). Course scaffolding was retired in favor of the automation suite above.
 
-Get help: [Post in our discussion board](https://github.com/orgs/skills/discussions/categories/hello-github-actions) &bull; [Review the GitHub status page](https://www.githubstatus.com/)
+## License
 
-&copy; 2023 GitHub &bull; [Code of Conduct](https://www.contributor-covenant.org/version/2/1/code_of_conduct/code_of_conduct.md) &bull; [MIT License](https://gh.io/mit)
-
-</footer>
+[MIT](LICENSE)
