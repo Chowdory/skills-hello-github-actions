@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/Chowdory/skills-hello-github-actions/compare/v1.0.0...v1.0.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* Repo Doctor uses repo-wide workflow run listing ([5346442](https://github.com/Chowdory/skills-hello-github-actions/commit/5346442fed231e7550311797de53c1db3e2b3d35))
+
 ## 1.0.0 (2026-10-21)
 
 
